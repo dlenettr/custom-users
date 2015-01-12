@@ -129,5 +129,5 @@ Tarihçe
 * 12.01.2015 (v1.0)
 
 [Mehmet Hanoğlu]:https://github.com/marzochi
-[Custom Users]:http://dle.net.tr/dle-modul/647-custom-users-v10.html
+[Custom Users]:http://dle.net.tr/dle-modul/647-dle-custom-users.html
 [http://dle.net.tr]:http://dle.net.tr
