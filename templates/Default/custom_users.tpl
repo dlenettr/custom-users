@@ -9,6 +9,7 @@
 		<p>Son Yazısı: <a href="{news-link}">{news-title}</a></p>
 		<p>Tarih: {news-date=d.m.Y}</p>
 		[/news]
+		<p>Cinsiyet: {xfield-gender}</p>
 		<i>Son Ziyareti: {last-date=d.m.Y}<br /> 
 		Kayıt Tarihi: {reg-date=d.m.Y}</i>
 	</div>
