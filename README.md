@@ -4,7 +4,7 @@ Custom Users for DLE ( DataLife Engine )
 * Yapımcı: [Mehmet Hanoğlu]
 * Site   : [http://dle.net.tr]
 * Lisans : MIT License
-* DLE    : 10.3+
+* DLE    : 10.3, 10.4
 
 [Custom Users] modülü ile sitenizdeki kullanıcıları bir çok kritere göre sıralama yapabilirsiniz. Örneğin: Son kayıt olanlar, yazarlarımız, online kullanıcılar, online yöneticiler vb. sınırı tamamen size kalmış çeşitlendirme yapılabilir.
 Kullandığı şablon dosyası sayesinde kod düzenlemesi olmadan istediğiniz özelleştirmeyi yapabilirsiniz. Şablon dosyasında desteklenen kontrol tagları ile kullanıcıları gruplarına, makale yazmış olmasına, online veya offline olmasına göre ayırabilirsiniz.
@@ -44,6 +44,7 @@ Kullanıcı Bilgileri :
 {info}               - Bilgi / Hakkında
 {sign}               - İmzası
 {full-name}          - Tam adı
+{xfield-ALANADI}     - İlave alan değeri
 ~~~
 
 Kullanıcı Grubu Bilgileri :
@@ -82,18 +83,21 @@ from="0"                 : Başlangıç
 limit="10"               : Limit ( limit-from kadar kullanıcı gösterilir )
 order="date"             : Sıralama kriterleri ( news - Makale sayısı, comment - Yorum sayısı, group - Kullanıcı grup ID, lastdate - Son ziyaret tarihi, regdate - Kayıt traihi, nick - Kullanıcı Adı, rand - Karışık )
 sort="desc"              : Sıralama metodu ( asc: Artan, desc: Azalan )
+xfield="gender:Erkek"    : gender İlave alanı Erkek olan kullanıcılar ( Çoklu kullanım: xfield="a:b,c:d" )
 ~~~
 
 Örnek kod :
 ~~~
 {users cache="no" group="1-10" online="yes" template="custom_users" from="0" limit="5" order="news" sort="desc"}
+{users cache="no" group="1-10" xfield="gender:Erkek" template="custom_users" from="0" limit="5" order="news" sort="desc"}
+{users cache="no" group="1-10" xfield="gender:Erkek" template="custom_users" from="0" limit="10" order="lastdate" sort="asc"}
 ~~~
 
 Eğer online üyeleri göstermek için kullanacaksanız cache="no" parametresi ile birlikte kullanın. Aksi halde hatalı bir sonuçla karışılaşırsınız.
 
 Kurulum
 ---
-1) Aç: index.php
+1) Aç: index.php ( 10.3 ve altı ) | engine/modules/main.php ( 10.4 ve üstü )
 Bul :
 ~~~
 $config['http_home_url'] = explode ( "index.php", strtolower ( $_SERVER['PHP_SELF'] ) );
@@ -126,6 +130,7 @@ if ( stripos( $tpl->copy_template, "{users" ) !== false ) {
 
 Tarihçe
 -----------------------
+* 12.02.2015 (v1.1)
 * 12.01.2015 (v1.0)
 
 [Mehmet Hanoğlu]:https://github.com/marzochi
