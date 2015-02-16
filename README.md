@@ -130,7 +130,7 @@ if ( stripos( $tpl->copy_template, "{users" ) !== false ) {
 
 Tarihçe
 -----------------------
-* 12.02.2015 (v1.1)
+* 16.02.2015 (v1.1)
 * 12.01.2015 (v1.0)
 
 [Mehmet Hanoğlu]:https://github.com/marzochi
