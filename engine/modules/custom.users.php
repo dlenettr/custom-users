@@ -1,7 +1,7 @@
 <?php
 /*
 =====================================================
- MWS Custom Users v1.0 - Mehmet Hanoğlu
+ MWS Custom Users v1.1 - Mehmet Hanoğlu
 -----------------------------------------------------
  http://dle.net.tr/ -  Copyright (c) 2015
 -----------------------------------------------------
@@ -18,7 +18,6 @@ if ( ! defined( 'DATALIFEENGINE' ) ) {
 $user_conf = array(
 	'sel_news_info' => "1",
 );
-
 
 if ( $user_conf['sel_news_info'] ) {
 
@@ -49,7 +48,6 @@ if ( $user_conf['sel_news_info'] ) {
 		return $title;
 	}
 }
-
 
 function user_formdate( $matches = array() ) {
 	global $news_date;
@@ -143,8 +141,20 @@ function custom_users( $matches = array() ) {
 		$user_cache = "0";
 	}
 
+	if ( preg_match( "#xfield=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$_temp = explode( ",", $match[1] ); $_rules = array();
+		foreach ( $_temp as $_temp2 ) {
+			$_rules[] = "u.xfields LIKE '%" . str_replace( ":", "|", $_temp2 ) . "%'";
+		}
+		$where[] = "( " . implode( " AND ", $_rules ) . " )";
+		$use_xfield = True;
+	} else {
+		$use_xfield = False;
+	}
+
 	$user_yes = false;
 	$user_cols = array( "email", "name", "user_id", "news_num", "comm_num", "user_group", "lastdate", "reg_date", "signature", "foto", "fullname", "land", "logged_ip" );
+	if ( $use_xfield ) $user_cols[] = "xfields";
 	$user_sql = "SELECT u." . implode( ", u.", $user_cols ) . " FROM " . PREFIX . "_users u WHERE " . implode( ' AND ', $where ) . " ORDER BY {$user_order} {$user_sort} LIMIT {$user_from},{$user_limit}";
 	$user_que = $db->query( $user_sql );
 
@@ -200,6 +210,13 @@ function custom_users( $matches = array() ) {
 				if ( $user_row['foto'] and ( file_exists( ROOT_DIR . "/uploads/fotos/" . $user_row['foto'] ) ) ) $tpl->set( '{foto}', $config['http_home_url'] . "uploads/fotos/" . $user_row['foto'] );
 				else $tpl->set( '{foto}', "{THEME}/dleimages/noavatar.png" );
 			}
+			if ( $use_xfield ) {
+				$xf = xfieldsdataload( $user_row['xfields'] );
+				foreach ( $xf as $xf_key => $xf_val ) {
+					$xf_key = preg_quote( $xf_key, "'" );
+					$tpl->set( "{xfield-" . $xf_key . "}", $xf_val );
+				}
+			}
 			$tpl->set( "{name}", $user_row['name'] );
 			$tpl->set( "{name-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_row['name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
 			$tpl->set( "{name-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['autor'] ) : $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['autor'] ) );
@@ -224,6 +241,8 @@ function custom_users( $matches = array() ) {
 			$tpl->result['content'] = preg_replace( "#\\[user-group=([0-9])\\](.*?)\\[/user-group\\]#is", "", $tpl->result['content'] );
 			$tpl->result['content'] = preg_replace( "#\\[news\\](.*?)\\[/news\\]#is", ( $news_row != false ) ? "\\1" : "", $tpl->result['content'] );
 		}
+
+		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "/templates/" . $config['skin'] . "/", $tpl->result['content'] );
 
 		if ( $user_cache ) {
 			create_cache( "news_ucustom", $tpl->result['content'], $user_cacheid, true );
