@@ -242,7 +242,7 @@ function custom_users( $matches = array() ) {
 			$tpl->result['content'] = preg_replace( "#\\[news\\](.*?)\\[/news\\]#is", ( $news_row != false ) ? "\\1" : "", $tpl->result['content'] );
 		}
 
-		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "/templates/" . $config['skin'] . "/", $tpl->result['content'] );
+		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "/templates/" . $config['skin'], $tpl->result['content'] );
 
 		if ( $user_cache ) {
 			create_cache( "news_ucustom", $tpl->result['content'], $user_cacheid, true );
