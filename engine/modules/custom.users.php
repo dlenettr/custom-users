@@ -17,6 +17,7 @@ if ( ! defined( 'DATALIFEENGINE' ) ) {
 
 $user_conf = array(
 	'sel_news_info' => "1",
+	'sel_xfields'   => "1",
 );
 
 if ( $user_conf['sel_news_info'] ) {
@@ -55,7 +56,7 @@ function user_formdate( $matches = array() ) {
 }
 
 function custom_users( $matches = array() ) {
-	global $db, $_TIME, $config, $lang, $user_group, $user_conf, $news_date;
+	global $db, $_TIME, $config, $lang, $user_group, $user_conf, $news_date, $member_id;
 
 	if ( ! count( $matches ) ) return "";
 	$yes_no_map = array( "yes" => "1", "no" => "0" );
@@ -144,17 +145,28 @@ function custom_users( $matches = array() ) {
 	if ( preg_match( "#xfield=['\"](.+?)['\"]#i", $param_str, $match ) ) {
 		$_temp = explode( ",", $match[1] ); $_rules = array();
 		foreach ( $_temp as $_temp2 ) {
-			$_rules[] = "u.xfields LIKE '%" . str_replace( ":", "|", $_temp2 ) . "%'";
+			if ( strpos( $_temp2, "this." ) !== False && isset( $member_id ) ) {
+				$_temp3 = explode( ":", $_temp2 );
+				$_temp4 = trim( str_replace( "this.", "", $_temp3[1] ) ); unset( $_temp3 );
+				$_thisxf = xfieldsdataload( $member_id['xfields'] );
+				if ( array_key_exists( $_temp4, $_thisxf ) ) {
+					$_rules[] = "u.xfields LIKE '%" . $_temp4 . "|" . $_thisxf[ $_temp4 ] . "%'";
+				}
+			} else {
+				$_rules[] = "u.xfields LIKE '%" . str_replace( ":", "|", $_temp2 ) . "%'";
+			}
 		}
-		$where[] = "( " . implode( " AND ", $_rules ) . " )";
-		$use_xfield = True;
+		if ( count( $_rules ) > 0 ) {
+			$where[] = "( " . implode( " AND ", $_rules ) . " )";
+			$use_xfield = True;
+		}
 	} else {
 		$use_xfield = False;
 	}
 
 	$user_yes = false;
 	$user_cols = array( "email", "name", "user_id", "news_num", "comm_num", "user_group", "lastdate", "reg_date", "signature", "foto", "fullname", "land", "logged_ip" );
-	if ( $use_xfield ) $user_cols[] = "xfields";
+	if ( $user_conf['sel_xfields'] ) $user_cols[] = "xfields";
 	$user_sql = "SELECT u." . implode( ", u.", $user_cols ) . " FROM " . PREFIX . "_users u WHERE " . implode( ' AND ', $where ) . " ORDER BY {$user_order} {$user_sort} LIMIT {$user_from},{$user_limit}";
 	$user_que = $db->query( $user_sql );
 
@@ -210,13 +222,17 @@ function custom_users( $matches = array() ) {
 				if ( $user_row['foto'] and ( file_exists( ROOT_DIR . "/uploads/fotos/" . $user_row['foto'] ) ) ) $tpl->set( '{foto}', $config['http_home_url'] . "uploads/fotos/" . $user_row['foto'] );
 				else $tpl->set( '{foto}', "{THEME}/dleimages/noavatar.png" );
 			}
-			if ( $use_xfield ) {
+
+			if ( $user_conf['sel_xfields'] ) {
 				$xf = xfieldsdataload( $user_row['xfields'] );
 				foreach ( $xf as $xf_key => $xf_val ) {
 					$xf_key = preg_quote( $xf_key, "'" );
 					$tpl->set( "{xfield-" . $xf_key . "}", $xf_val );
 				}
+			} else {
+				$tpl->set_block( "'{xfield-(.*?)}'si", "" );
 			}
+
 			$tpl->set( "{name}", $user_row['name'] );
 			$tpl->set( "{name-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_row['name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
 			$tpl->set( "{name-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['autor'] ) : $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['autor'] ) );
@@ -229,7 +245,6 @@ function custom_users( $matches = array() ) {
 			$tpl->set( '{info}', $user_row['info'] );
 			$tpl->set( '{sign}', $user_row['signature'] );
 			$tpl->set( "{full-name}", $user_row['fullname'] );
-
 			$tpl->set( "{group}", $user_group[ $user_row['user_group'] ]['group_name'] );
 			$tpl->set( "{group-id}", $user_group['user_group'] );
 			$tpl->set( "{group-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_group[ $user_row['user_group'] ]['group_name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
@@ -237,12 +252,13 @@ function custom_users( $matches = array() ) {
 
 			$tpl->compile( "content" );
 
+			$tpl->result['content'] = preg_replace( "#\\{xfield-(.*?)\\}#is", "", $tpl->result['content'] );
 			$tpl->result['content'] = preg_replace( "#\\[user-group=" . $user_row['user_group'] . "\\](.*?)\\[/user-group\\]#is", "\\1", $tpl->result['content'] );
 			$tpl->result['content'] = preg_replace( "#\\[user-group=([0-9])\\](.*?)\\[/user-group\\]#is", "", $tpl->result['content'] );
 			$tpl->result['content'] = preg_replace( "#\\[news\\](.*?)\\[/news\\]#is", ( $news_row != false ) ? "\\1" : "", $tpl->result['content'] );
 		}
 
-		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "/templates/" . $config['skin'], $tpl->result['content'] );
+		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "templates/" . $config['skin'] . "/", $tpl->result['content'] );
 
 		if ( $user_cache ) {
 			create_cache( "news_ucustom", $tpl->result['content'], $user_cacheid, true );
