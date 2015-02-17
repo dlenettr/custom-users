@@ -1,7 +1,7 @@
 <?php
 /*
 =====================================================
- MWS Custom Users v1.1 - Mehmet Hanoğlu
+ MWS Custom Users v1.2 - Mehmet Hanoğlu
 -----------------------------------------------------
  http://dle.net.tr/ -  Copyright (c) 2015
 -----------------------------------------------------
@@ -235,7 +235,7 @@ function custom_users( $matches = array() ) {
 
 			$tpl->set( "{name}", $user_row['name'] );
 			$tpl->set( "{name-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_row['name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
-			$tpl->set( "{name-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['autor'] ) : $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['autor'] ) );
+			$tpl->set( "{name-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['name'] ) : $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['name'] ) );
 			$tpl->set( "{news-num}", intval( $user_row['news_num'] ) );
 			$tpl->set( "{comm-num}", intval( $user_row['comm_num'] ) );
 			$tpl->set( "{email}", $user_row['email'] );
