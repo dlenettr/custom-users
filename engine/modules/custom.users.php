@@ -1,7 +1,7 @@
 <?php
 /*
 =====================================================
- MWS Custom Users v1.2 - Mehmet Hanoğlu
+ MWS Custom Users v1.3 - Mehmet Hanoğlu
 -----------------------------------------------------
  http://dle.net.tr/ -  Copyright (c) 2015
 -----------------------------------------------------
@@ -56,7 +56,7 @@ function user_formdate( $matches = array() ) {
 }
 
 function custom_users( $matches = array() ) {
-	global $db, $_TIME, $config, $lang, $user_group, $user_conf, $news_date, $member_id;
+	global $db, $_TIME, $config, $lang, $user_group, $user_conf, $news_date, $member_id, $nav;
 
 	if ( ! count( $matches ) ) return "";
 	$yes_no_map = array( "yes" => "1", "no" => "0" );
@@ -82,7 +82,7 @@ function custom_users( $matches = array() ) {
 		if ( count( $temp_array ) ) {
 			$where_id[] = "u.user_id IN ('" . implode( "','", $temp_array ) . "')";
 		}
-		if ( count( $where_id ) ) { 
+		if ( count( $where_id ) ) {
 			$custom_id = implode( ' OR ', $where_id );
 			$where[] = $custom_id;
 		}
@@ -101,7 +101,7 @@ function custom_users( $matches = array() ) {
 		if ( count( $temp_array ) ) {
 			$where_id[] = "u.user_group IN ('" . implode( "','", $temp_array ) . "')";
 		}
-		if ( count( $where_id ) ) { 
+		if ( count( $where_id ) ) {
 			$custom_id = implode( ' OR ', $where_id );
 			$where[] = $custom_id;
 		}
@@ -142,6 +142,30 @@ function custom_users( $matches = array() ) {
 		$user_cache = "0";
 	}
 
+	if ( preg_match( "#not=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$not_found = $db->safesql( $match[1] );
+	} else {
+		$not_found = "";
+	}
+
+	if ( preg_match( "#friends=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$fids = array();
+		if ( $match[1] == "current" ) {
+			$friend_que = $db->query( "SELECT friend_id FROM " . PREFIX . "_users_friends WHERE user_id = '{$member_id['user_id']}' AND approve = '1'" );
+			while( $row = $db->get_row( $friend_que ) ) { $fids[] = $row['friend_id']; }
+		} else if ( $match[1] == "profile" ) {
+			$friend_que = $db->query( "SELECT f.friend_id FROM " . PREFIX . "_users_friends f LEFT JOIN " . PREFIX . "_users u ON ( u.user_id = f.user_id ) WHERE u.name = '{$_REQUEST['user']}' AND f.approve = '1'" );
+			while( $row = $db->get_row( $friend_que ) ) { $fids[] = $row['friend_id']; }
+		}
+		if ( count( $fids ) > 0 ) {
+			$where[] = "u.user_id IN ('" . implode( "','", $fids ) . "')";
+		} else {
+			$where[] = "u.user_id = '0'";
+		}
+	} else {
+		$user_friends = false;
+	}
+
 	if ( preg_match( "#xfield=['\"](.+?)['\"]#i", $param_str, $match ) ) {
 		$_temp = explode( ",", $match[1] ); $_rules = array();
 		foreach ( $_temp as $_temp2 ) {
@@ -167,17 +191,130 @@ function custom_users( $matches = array() ) {
 	$user_yes = false;
 	$user_cols = array( "email", "name", "user_id", "news_num", "comm_num", "user_group", "lastdate", "reg_date", "signature", "foto", "fullname", "land", "logged_ip" );
 	if ( $user_conf['sel_xfields'] ) $user_cols[] = "xfields";
-	$user_sql = "SELECT u." . implode( ", u.", $user_cols ) . " FROM " . PREFIX . "_users u WHERE " . implode( ' AND ', $where ) . " ORDER BY {$user_order} {$user_sort} LIMIT {$user_from},{$user_limit}";
+	$_WHERE = ( count( $where ) > 0 ) ? " WHERE " . implode( ' AND ', $where ) : "";
+
+	$build_navigation = false;
+	if ( isset( $_GET['cstart'] ) ) $cstart = intval( $_GET['cstart'] ); else $cstart = 0;
+	if ( preg_match( "#navigation=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		if ( $match[1] == "yes" AND $url_page !== false ) {
+			$build_navigation = true;
+			$custom_limit = $user_limit;
+			//if ( $cstart > 10 ) $config['allow_cache'] = false;
+			if ( $cstart ) {
+				$cstart = $cstart - 1;
+				$cstart = ( $cstart * $custom_limit ) + $user_from;
+				$user_from = $cstart;
+			}
+			$count_que = $db->super_query( "SELECT COUNT(u.name) as total FROM " . PREFIX . "_users u{$_WHERE} ORDER BY {$user_order} {$user_sort}" );
+			$count_all = $count_que['total'];
+		} else $build_navigation = false;
+	} else $build_navigation = false;
+
+	$user_sql = "SELECT u." . implode( ", u.", $user_cols ) . " FROM " . PREFIX . "_users u{$_WHERE} ORDER BY {$user_order} {$user_sort} LIMIT {$user_from},{$user_limit}";
 	$user_que = $db->query( $user_sql );
 
 	if ( $user_cache ) {
-		$user_cacheid = $param_str . $user_sql;
+		$user_cacheid = $param_str . $user_sql . $member_id['user_group'] . $build_navigation . $cstart . implode( "|", $user_conf );
 		$cache_content = dle_cache( "news_ucustom", $user_cacheid, true );
 	} else $cache_content = false;
+
 	if ( ! $cache_content ) {
 
 		$tpl = new dle_template();
 		$tpl->dir = TEMPLATE_DIR;
+
+		// Build navigation - start
+		$url_page = &$nav['url_page'];
+		$user_query = &$nav['user_query'];
+		if ( $build_navigation AND $count_all ) {
+			$tpl->load_template( 'navigation.tpl' );
+			$no_prev = false;
+			$no_next = false;
+			if ( isset( $_GET['cstart'] ) ) $cstart = intval ( $_GET['cstart'] ); else $cstart = 1;
+			if ( isset( $cstart ) and $cstart != "" and $cstart > 1 ) {
+				$prev = $cstart - 1;
+				if ( $config['allow_alt_url'] ) {
+					$prev_page = ( $prev == 1 ) ? $url_page . "/" : $url_page . "/page/" . $prev . "/";
+					$tpl->set_block( "'\[prev-link\](.*?)\[/prev-link\]'si", "<a href=\"" . $prev_page . "\">\\1</a>" );
+				} else {
+					$prev_page = ( $prev == 1 ) ? $PHP_SELF . "?" . $user_query : $PHP_SELF . "?cstart=" . $prev . "&amp;" . $user_query;
+					$tpl->set_block( "'\[prev-link\](.*?)\[/prev-link\]'si", "<a href=\"" . $prev_page . "\">\\1</a>" );
+				}
+			} else {
+				$tpl->set_block( "'\[prev-link\](.*?)\[/prev-link\]'si", "<span>\\1</span>" );
+				$no_prev = TRUE;
+			}
+			if ( $custom_limit ) {
+				$pages = "";
+				if ( $count_all > $custom_limit ) {
+					$enpages_count = @ceil( $count_all / $custom_limit );
+					if ( $enpages_count <= 10 ) {
+						for( $j = 1; $j <= $enpages_count; $j++ ) {
+							if ( $j != $cstart ) {
+								if ( $config['allow_alt_url'] ) {
+									$pages .= ( $j == 1 ) ? "<a href=\"" . $url_page . "/\">$j</a> " : "<a href=\"" . $url_page . "/page/" . $j . "/\">$j</a>";
+								} else {
+									$pages .= ( $j == 1 ) ? "<a href=\"$PHP_SELF?{$user_query}\">$j</a> " : "<a href=\"$PHP_SELF?$user_query&amp;cstart=$j\">$j</a>";
+								}
+							} else {
+								$pages .= "<span>$j</span> ";
+							}
+						}
+					} else {
+						$start = 1;
+						$end = 10;
+						$nav_prefix = "<span class=\"nav_ext\">{$lang['nav_trennen']}</span> ";
+						if ( $cstart > 0 ) {
+							if ( $cstart > 6 ) {
+								$start = $cstart - 4;
+								$end = $start + 8;
+								if ( $end >= $enpages_count ) {
+									$start = $enpages_count - 9;
+									$end = $enpages_count - 1;
+									$nav_prefix = "";
+								} else {
+									$nav_prefix = "<span class=\"nav_ext\">{$lang['nav_trennen']}</span> ";
+								}
+							}
+						}
+						if ( $start >= 2 ) {
+							$pages .= ( $config['allow_alt_url'] ) ? "<a href=\"" . $url_page . "/\">1</a> <span class=\"nav_ext\">{$lang['nav_trennen']}</span> " : "<a href=\"$PHP_SELF?{$user_query}\">1</a> <span class=\"nav_ext\">{$lang['nav_trennen']}</span> ";
+						}
+						for( $j = $start; $j <= $end; $j++ ) {
+							if ( $j != $cstart ) {
+								if ( $config['allow_alt_url'] ) {
+									$pages .= ( $j == 1 ) ? "<a href=\"" . $url_page . "/\">$j</a> " : "<a href=\"" . $url_page . "/page/" . $j . "/\">$j</a> ";
+								} else {
+									$pages .= ( $j == 1 ) ? "<a href=\"$PHP_SELF?{$user_query}\">$j</a> " : "<a href=\"$PHP_SELF?$user_query&amp;cstart=$j\">$j</a> ";
+								}
+							} else {
+								$pages .= "<span>$j</span> ";
+							}
+						}
+						if ( $cstart != $enpages_count ) {
+							$pages .= ( $config['allow_alt_url'] ) ? $nav_prefix . "<a href=\"" . $url_page . "/page/{$enpages_count}/\">{$enpages_count}</a>" : $nav_prefix . "<a href=\"$PHP_SELF?$user_query&amp;cstart={$enpages_count}\">{$enpages_count}</a>";
+						} else {
+							$pages .= "<span>{$enpages_count}</span> ";
+						}
+					}
+				}
+				$tpl->set( '{pages}', $pages );
+			}
+			if ( $custom_limit AND $custom_limit < $count_all AND $cstart < $enpages_count ) {
+				$next_page = $cstart + 1;
+				$next = ( $config['allow_alt_url'] ) ? $url_page . '/page/' . $next_page . '/' : $PHP_SELF . "?" . $user_query . "&amp;cstart=" . $next_page;
+				$tpl->set_block( "'\[next-link\](.*?)\[/next-link\]'si", "<a href=\"" . $next . "\">\\1</a>" );
+			} else {
+				$tpl->set_block( "'\[next-link\](.*?)\[/next-link\]'si", "<span>\\1</span>" );
+				$no_next = TRUE;
+			}
+			if ( !$no_prev OR !$no_next ) {
+				$tpl->compile( 'navi' );
+			}
+			$tpl->clear();
+		}
+		// Build navigation - end
+
 		$tpl->load_template( $comm_tpl . '.tpl' );
 
 		while( $user_row = $db->get_row( $user_que ) ) {
@@ -236,6 +373,11 @@ function custom_users( $matches = array() ) {
 			$tpl->set( "{name}", $user_row['name'] );
 			$tpl->set( "{name-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_row['name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
 			$tpl->set( "{name-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['name'] ) : $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['name'] ) );
+			$tpl->set( "{name-popup}", ( $config['allow_alt_url'] ) ? "ShowProfile('" . urlencode( $user_row['name'] ) . "', '" . $config['http_home_url'] . "user/" . urlencode( $user_row['name'] ) . "/', '1'); return false;" : "ShowProfile('" . urlencode( $user_row['name'] ) . "', '" . $config['http_home_url'] . "index.php?subaction=userinfo&amp;user=" . urlencode( $user_row['name'] ) . "', '0'); return false;" );
+			$tpl->set( "{allnews-url}", ( $config['allow_alt_url'] ) ? $config['http_home_url'] . "user/" . urlencode( $user_row['name'] ) . "/news/" : $config['http_home_url'] . "index.php?subaction=allnews&amp;user=" . urlencode( $user_row['name'] ) );
+			$tpl->set( "{allcomm-url}", $config['http_home_url'] . "index.php?do=lastcomments&amp;userid=" . urlencode( $user_row['user_id'] ) );
+			$tpl->set( "{pm-url}", $config['http_home_url'] . "index.php?do=pm&amp;doaction=newpm&amp;user=" . urlencode( $user_row['user_id'] ) );
+			$tpl->set( "{email-url}", $config['http_home_url'] . "index.php?do=feedback&amp;user=" . urlencode( $user_row['user_id'] ) );
 			$tpl->set( "{news-num}", intval( $user_row['news_num'] ) );
 			$tpl->set( "{comm-num}", intval( $user_row['comm_num'] ) );
 			$tpl->set( "{email}", $user_row['email'] );
@@ -249,7 +391,6 @@ function custom_users( $matches = array() ) {
 			$tpl->set( "{group-id}", $user_group['user_group'] );
 			$tpl->set( "{group-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_group[ $user_row['user_group'] ]['group_name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
 			$tpl->set( "{group-icon}", $user_group['icon'] );
-
 			$tpl->compile( "content" );
 
 			$tpl->result['content'] = preg_replace( "#\\{xfield-(.*?)\\}#is", "", $tpl->result['content'] );
@@ -258,12 +399,21 @@ function custom_users( $matches = array() ) {
 			$tpl->result['content'] = preg_replace( "#\\[news\\](.*?)\\[/news\\]#is", ( $news_row != false ) ? "\\1" : "", $tpl->result['content'] );
 		}
 
+		if ( ! $user_yes ) {
+			$tpl->result['content'] = $not_found;
+		}
+
+		if ( $build_navigation ) {
+			$tpl->result['content'] = $tpl->result['content'] . $tpl->result['navi'];
+		}
+
 		$tpl->result['content'] = str_replace( "{THEME}", $config['http_home_url'] . "templates/" . $config['skin'] . "/", $tpl->result['content'] );
 
 		if ( $user_cache ) {
 			create_cache( "news_ucustom", $tpl->result['content'], $user_cacheid, true );
 		}
 		return $tpl->result['content'];
+
 	} else return $cache_content;
 
 }
