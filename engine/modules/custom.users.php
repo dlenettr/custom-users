@@ -388,9 +388,9 @@ function custom_users( $matches = array() ) {
 			$tpl->set( '{sign}', $user_row['signature'] );
 			$tpl->set( "{full-name}", $user_row['fullname'] );
 			$tpl->set( "{group}", $user_group[ $user_row['user_group'] ]['group_name'] );
-			$tpl->set( "{group-id}", $user_group['user_group'] );
+			$tpl->set( "{group-id}", $user_group[ $user_row['user_group'] ]['id'] );
 			$tpl->set( "{group-colored}", $user_group[ $user_row['user_group'] ]['group_prefix'] . $user_group[ $user_row['user_group'] ]['group_name'] . $user_group[ $user_row['user_group'] ]['group_suffix'] );
-			$tpl->set( "{group-icon}", $user_group['icon'] );
+			$tpl->set( "{group-icon}", $user_group[ $user_row['user_group'] ]['icon'] );
 			$tpl->compile( "content" );
 
 			$tpl->result['content'] = preg_replace( "#\\{xfield-(.*?)\\}#is", "", $tpl->result['content'] );
