@@ -356,8 +356,17 @@ function custom_users( $matches = array() ) {
 			if ( count( explode( "@", $user_row['foto'] ) ) == 2 ) {
 				$tpl->set( '{foto}', 'http://www.gravatar.com/avatar/' . md5( trim( $user_row['foto'] ) ) . '?s=' . intval( $user_group[$user_row['user_group']]['max_foto'] ) );
 			} else {
-				if ( $user_row['foto'] and ( file_exists( ROOT_DIR . "/uploads/fotos/" . $user_row['foto'] ) ) ) $tpl->set( '{foto}', $config['http_home_url'] . "uploads/fotos/" . $user_row['foto'] );
-				else $tpl->set( '{foto}', "{THEME}/dleimages/noavatar.png" );
+				if ( $user_row['foto'] && $config['version_id'] < "10.5" ) {
+					if ( ( file_exists( ROOT_DIR . "/uploads/fotos/" . $user_row['foto'] ) ) ) {
+						$tpl->set( '{foto}', $config['http_home_url'] . "uploads/fotos/" . $comm_row['foto'] );
+					} else {
+						$tpl->set( '{foto}', "{THEME}/dleimages/noavatar.png" );
+					}
+				} else if ( $user_row['foto'] && $config['version_id'] >= "10.5" ) {
+					$tpl->set( '{foto}', $user_row['foto'] );
+				} else {
+					$tpl->set( '{foto}', "{THEME}/dleimages/noavatar.png" );
+				}
 			}
 
 			if ( $user_conf['sel_xfields'] ) {
