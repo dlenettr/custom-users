@@ -113,7 +113,12 @@ function custom_users( $matches = array() ) {
 			$where[] = "u.lastdate+1200 <= {$_TIME} ";
 		}
 	}
-
+	if ( preg_match( "#news-count=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$where[] = "u.news_num > " . intval( $match[1] ) . " ";
+	}
+	if ( preg_match( "#comment-count=['\"](.+?)['\"]#i", $param_str, $match ) ) {
+		$where[] = "u.comm_num > " . intval( $match[1] ) . " ";
+	}
 	if ( preg_match( "#from=['\"](.+?)['\"]#i", $param_str, $match ) ) {
 		$user_from = intval( $match[1] ); $custom_all = $custom_from;
 	} else {
